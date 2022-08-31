@@ -1,0 +1,14 @@
+# c++
+c++/app.exe
+
+# npm
+**/*/node_modules
+**/*/.npm-debug.log
+**/*/.pnpm-debug.log
+**/*/dist
+
+# rust
+**/*/target
+wasm/rust/pkg
+wasm/rust/Cargo.lock
+wasm/rust/**/*.rs.bk
