@@ -6,7 +6,7 @@ This project contains several blank projects ready to write and execute. It is u
 
 To only download a subdirectory use these commands.
 
-```
+```sh
 git clone --no-checkout --sparse --filter=blob:none --depth 1 https://github.com/otcova/playground.git
 cd playground
 git sparse-checkout init --cone
