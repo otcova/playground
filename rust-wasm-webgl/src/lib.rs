@@ -1,91 +1,77 @@
 #![allow(dead_code)]
 
 use wasm_bindgen::prelude::*;
-use wasm_bindgen::JsCast;
-use web_sys::WebGl2RenderingContext;
 mod console;
-pub mod error;
+mod error;
 mod gl;
+mod js_loop;
 use gl::*;
+use js_loop::*;
 
-pub fn body() -> Option<web_sys::HtmlElement> {
-    web_sys::window()?.document()?.body()
-}
+#[global_allocator]
+static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
 #[wasm_bindgen(start)]
-pub fn start() -> Result<(), JsValue> {
-    if let Err(error) = setup() {
-        console::log!("[ERROR]\n{}", error);
-    }
-
-    Ok(())
+pub fn start() {
+    error::report(setup());
 }
 
 fn setup() -> Result<(), String> {
-    let gl = Gl::new(&load_canvas()?)?;
+    let gl = Gl::init()?;
 
-    let program = gl.create_program(
-        r##"#version 300 es
- 
-        in vec3 position;
+    let vertices = [
+        -0.5, -0.5, -0.5, 0.5, 0.5, -0.5, 0.5, 0.5, 0.5, -0.5, -0.5, 0.5,
+    ];
 
-        void main() {
-            gl_Position = vec4(position, 1);
+    let mut mesh = gl.create_mesh(&vertices)?;
+
+    create_draw_loop(move |time| {
+        gl.clear_canvas(&[0., 0., 0., 1.]);
+
+        let start = get_current_time()?;
+
+        let margin = 0.95;
+
+        let width = 200;
+        let height = 200;
+        let half_width = (width as f32 / 2. - 0.5) / margin;
+        let half_height = (height as f32 / 2. - 0.5) / margin;
+
+        for x in 0..width {
+            for y in 0..height {
+                mesh.create_instance(
+                    InstanceProperties::new().position(&[
+                        x as f32 / half_width - margin,
+                        y as f32 / half_height - margin,
+                        0.5,
+                    ]).
+                    color(&[
+                        (5. * time.seconds + x as f32 / 8. + y as f32 / 9. + 1.).sin(),
+                        // 0.,
+                        (10. * time.seconds - x as f32 / 10. + y as f32 / 10.).sin(),
+                        -(-6. * time.seconds + x as f32 / 10. + y as f32 / 4.).sin(),
+                        // 1.,
+                        1.,
+                    ])
+                    .matrix(&[0.005, 0.0, 0.0, 0.005])
+                );
+            }
         }
-        "##,
-        r##"#version 300 es
-        precision mediump float;
-        
-        uniform vec4 color;
-        out vec4 outColor;
-        
-        void main() {
-            outColor = color;
-        } "##,
-    )?;
 
-    let vertices: [f32; 9] = [-0.7, -0.7, 0.0, 0.7, -0.7, 0.0, 0.0, 0.7, 0.0];
+        let after_draw = get_current_time()?;
 
-    let buffer = gl.create_static_buffer(&vertices)?;
+        mesh.draw();
 
-    program.link_data(&buffer, &[("position", ParameterType::VecF32(3))]);
+        if time.frame_count % 60 == 0 {
+            console::log!(
+                "render: {}ms      setup: {}ms      draw: {}ms",
+                time.render_average * 1000.,
+                (after_draw - start) * 1000.,
+                (get_current_time()? - after_draw) * 1000.,
+            );
+        }
+        Ok(())
+    })?;
 
-    program.set_uniform("color", &Uniform::Vec4F32(&[1., 1., 0.5, 1.]));
-    let vert_count = (vertices.len() / 3) as i32;
-
-    draw(&gl.context, vert_count);
-
-    Ok(())
-}
-
-fn draw(context: &WebGl2RenderingContext, vert_count: i32) {
-    context.clear_color(0.0, 0.0, 0.0, 1.0);
-    context.clear(WebGl2RenderingContext::COLOR_BUFFER_BIT);
-
-    context.draw_arrays(WebGl2RenderingContext::TRIANGLES, 0, vert_count);
-}
-
-fn load_canvas() -> Result<web_sys::HtmlCanvasElement, String> {
-    let window = web_sys::window().ok_or("Couldn't get window")?;
-    let document = window.document().ok_or("Couldn't get document")?;
-
-    let canvas = document
-        .get_element_by_id("canvas")
-        .ok_or("Couldn't get canvas")?;
-    let canvas: web_sys::HtmlCanvasElement = canvas
-        .dyn_into::<web_sys::HtmlCanvasElement>()
-        .map_err(|e| error::fmt(e, "Invalid canvas"))?;
-
-    canvas.set_width(window.inner_width().unwrap().as_f64().unwrap() as u32);
-    canvas.set_height(window.inner_height().unwrap().as_f64().unwrap() as u32);
-
-    Ok(canvas)
-}
-
-fn request_animation_frame(f: &::js_sys::Function) -> Result<(), String> {
-    web_sys::window()
-        .ok_or("Couldn't get window")?
-        .request_animation_frame(&f)
-        .map_err(|e| error::fmt(e, "Request animation frame failed"))?;
     Ok(())
 }

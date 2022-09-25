@@ -1,46 +1,50 @@
-use super::Gl;
 use web_sys::*;
 
-pub struct Buffer {
-    gl: Gl,
-    gl_buffer: WebGlBuffer,
-}
-
-impl Gl {
-    pub fn create_buffer(&self) -> Result<Buffer, String> {
-        Ok(Buffer {
-            gl: self.clone(),
-            gl_buffer: self
-                .context
-                .create_buffer()
-                .ok_or("Unable to create gl buffer")?,
-        })
-    }
-
-    pub fn create_static_buffer(&self, data: &[f32]) -> Result<Buffer, String> {
-        let buffer = self.create_buffer()?;
-        buffer.allocate_static(data);
-        Ok(buffer)
-    }
+pub struct GlBuffer {
+    context: WebGl2RenderingContext,
+    buffer: WebGlBuffer,
+    len: usize,
 }
 
 const TARGET: u32 = WebGl2RenderingContext::ARRAY_BUFFER;
 
-impl Buffer {
+impl GlBuffer {
+    pub fn new(gl_context: &WebGl2RenderingContext) -> Result<GlBuffer, String> {
+        Ok(GlBuffer {
+            context: gl_context.clone(),
+            buffer: gl_context
+                .create_buffer()
+                .ok_or("Unable to create gl buffer")?,
+            len: 0,
+        })
+    }
+
+    pub fn new_static(
+        gl_context: &WebGl2RenderingContext,
+        data: &[f32],
+    ) -> Result<GlBuffer, String> {
+        let mut buffer = Self::new(gl_context)?;
+        buffer.allocate_static(data);
+        Ok(buffer)
+    }
+
     pub fn bind(&self) {
-        self.gl.context.bind_buffer(TARGET, Some(&self.gl_buffer));
+        self.context.bind_buffer(TARGET, Some(&self.buffer));
     }
 
-    pub fn allocate(&self, data: &[f32]) {
-        self.array_buffer_data(data, WebGl2RenderingContext::DYNAMIC_DRAW);
+    pub fn update(&mut self, data: &[f32]) {
+        if self.len < data.len() {
+            self.allocate_data(data, WebGl2RenderingContext::DYNAMIC_DRAW);
+        } else {
+            self.update_slice(data, 0);
+        }
     }
 
-    /// faster than allocate if you don't want to update frequently
-    pub fn allocate_static(&self, data: &[f32]) {
-        self.array_buffer_data(data, WebGl2RenderingContext::STATIC_DRAW);
+    /// faster than allocate if you don't want to update data frequently
+    pub fn allocate_static(&mut self, data: &[f32]) {
+        self.allocate_data(data, WebGl2RenderingContext::STATIC_DRAW);
     }
 
-    /// always faster than allocate
     pub fn update_slice(&self, data: &[f32], dst_byte_offset: i32) {
         self.bind();
 
@@ -55,7 +59,7 @@ impl Buffer {
         unsafe {
             let array_buffer_view = js_sys::Float32Array::view(&data);
 
-            self.gl.context.buffer_sub_data_with_i32_and_array_buffer_view(
+            self.context.buffer_sub_data_with_i32_and_array_buffer_view(
                 WebGl2RenderingContext::ARRAY_BUFFER,
                 dst_byte_offset,
                 &array_buffer_view,
@@ -63,8 +67,9 @@ impl Buffer {
         }
     }
 
-    fn array_buffer_data(&self, data: &[f32], usage: u32) {
+    fn allocate_data(&mut self, data: &[f32], usage: u32) {
         self.bind();
+        self.len = data.len();
 
         // Note that `Float32Array::view` is somewhat dangerous (hence the
         // `unsafe`!). This is creating a raw view into our module's
@@ -77,7 +82,7 @@ impl Buffer {
         unsafe {
             let array_buffer_view = js_sys::Float32Array::view(&data);
 
-            self.gl.context.buffer_data_with_array_buffer_view(
+            self.context.buffer_data_with_array_buffer_view(
                 WebGl2RenderingContext::ARRAY_BUFFER,
                 &array_buffer_view,
                 usage,
