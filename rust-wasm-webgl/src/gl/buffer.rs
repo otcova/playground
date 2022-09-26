@@ -90,3 +90,9 @@ impl GlBuffer {
         }
     }
 }
+
+impl Drop for GlBuffer {
+    fn drop(&mut self) {
+        self.context.delete_buffer(Some(&self.buffer));
+    }
+} 

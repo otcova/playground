@@ -4,7 +4,7 @@ use super::buffer::GlBuffer;
 
 pub struct GlVAO {
     context: WebGl2RenderingContext,
-    gl_vao: WebGlVertexArrayObject,
+    vao: WebGlVertexArrayObject,
 }
 
 #[derive(Debug)]
@@ -17,17 +17,17 @@ pub enum Attrib {
 
 impl GlVAO {
     pub fn bind(&self) {
-        self.context.bind_vertex_array(Some(&self.gl_vao));
+        self.context.bind_vertex_array(Some(&self.vao));
     }
     pub fn new(context: &WebGl2RenderingContext) -> Result<GlVAO, String> {
         Ok(Self {
-            gl_vao: context.create_vertex_array().ok_or("Couldn't create vao")?,
+            vao: context.create_vertex_array().ok_or("Couldn't create vao")?,
             context: context.clone(),
         })
     }
 
     pub fn link_instance_buffer(&self, buffer: &GlBuffer, attributes: &[Attrib]) {
-        self.context.bind_vertex_array(Some(&self.gl_vao));
+        self.context.bind_vertex_array(Some(&self.vao));
         buffer.bind();
 
         let mut stride = 0;
@@ -45,7 +45,7 @@ impl GlVAO {
         }
     }
     pub fn link_buffer(&self, buffer: &GlBuffer, attributes: &[Attrib]) {
-        self.context.bind_vertex_array(Some(&self.gl_vao));
+        self.context.bind_vertex_array(Some(&self.vao));
         buffer.bind();
 
         let mut stride = 0;
@@ -130,5 +130,11 @@ impl Attrib {
             }
             Attrib::Offset(_) => {}
         }
+    }
+}
+
+impl Drop for GlVAO {
+    fn drop(&mut self) {
+        self.context.delete_vertex_array(Some(&self.vao));
     }
 }
