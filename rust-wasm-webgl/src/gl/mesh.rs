@@ -15,7 +15,9 @@ pub struct GlMesh {
 pub struct InstanceProperties([f32; 11]);
 impl InstanceProperties {
     pub fn new() -> Self {
-        Self([0.; 11])
+        // let n = 2f32.sqrt() / 2.;
+        // Self([0., 0., 0., 1., 1., 1., 1., n, -n, n, n])
+        Self([0., 0., 0., 1., 1., 1., 1., 1., 0., 0., 1.])
     }
     pub fn position(&mut self, position: &[f32; 3]) -> &mut Self {
         self.0[0..3].copy_from_slice(position);
@@ -27,6 +29,24 @@ impl InstanceProperties {
     }
     pub fn matrix(&mut self, matrix: &[f32; 4]) -> &mut Self {
         self.0[7..11].copy_from_slice(matrix);
+        self
+    }
+    pub fn rotate(&mut self, angle: f32) -> &mut Self {
+        let c = angle.cos();
+        let s = angle.sin();
+        self.matrix(&[
+            self.0[7] * c - self.0[9] * s,
+            self.0[8] * c - self.0[10] * s,
+            self.0[7] * s + self.0[9] * c,
+            self.0[8] * s + self.0[10] * c,
+        ]);
+        self
+    }
+    pub fn scale(&mut self, scalar: f32) -> &mut Self {
+        self.0[7] *= scalar;
+        self.0[8] *= scalar;
+        self.0[9] *= scalar;
+        self.0[10] *= scalar;
         self
     }
 }
@@ -84,7 +104,7 @@ impl GlMesh {
                 vao,
                 vertices_buffer,
                 vertices_count: vertices.len() as i32 / VERTEX_LEN,
-                instances_data: vec![0.; 2097152],
+                instances_data: vec![],
                 instances_buffer,
                 context: context.clone(),
                 instances_count: 0,
