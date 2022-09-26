@@ -24,8 +24,12 @@ impl Gl {
             .dyn_into::<WebGl2RenderingContext>()
             .map_err(|e| error::fmt(e, ""))?;
         context.enable(WebGl2RenderingContext::DEPTH_TEST);
+        
+        let program = GlProgram::new(&context, shaders::VERTEX_SOURCE, shaders::FRAGMENT_SOURCE)?;
+        program.bind();
+
         Ok(Self {
-            program: GlProgram::new(&context, shaders::VERTEX_SOURCE, shaders::FRAGMENT_SOURCE)?,
+            program, 
             context,
         })
     }

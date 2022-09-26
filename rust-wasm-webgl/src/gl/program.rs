@@ -16,8 +16,11 @@ pub(super) enum Uniform<'a> {
 
 pub struct GlProgram {
     gl_context: WebGl2RenderingContext,
-    pub(super) gl_program: WebGlProgram,
+    pub(super) program: WebGlProgram,
 }
+
+const VERTEX_SHADER: u32 = WebGl2RenderingContext::VERTEX_SHADER;
+const FRAGMENT_SHADER: u32 = WebGl2RenderingContext::FRAGMENT_SHADER;
 
 impl GlProgram {
     pub(super) fn new(
@@ -25,20 +28,17 @@ impl GlProgram {
         vertex_shader_src: &str,
         fragment_shader_src: &str,
     ) -> Result<GlProgram, String> {
-        const VERTEX_SHADER: u32 = WebGl2RenderingContext::VERTEX_SHADER;
-        const FRAGMENT_SHADER: u32 = WebGl2RenderingContext::FRAGMENT_SHADER;
-
         let vertex_shader = compile_shader(gl, VERTEX_SHADER, vertex_shader_src)?;
         let fragment_shader = compile_shader(gl, FRAGMENT_SHADER, fragment_shader_src)?;
 
         Ok(GlProgram {
             gl_context: gl.clone(),
-            gl_program: link_shaders(gl, &vertex_shader, &fragment_shader)?,
+            program: link_shaders(gl, &vertex_shader, &fragment_shader)?,
         })
     }
 
     fn set_uniform(&self, name: &str, value: Uniform) {
-        let location = self.gl_context.get_uniform_location(&self.gl_program, name);
+        let location = self.gl_context.get_uniform_location(&self.program, name);
         let loc = location.as_ref();
         match value {
             Uniform::Vec1F32(data) => self.gl_context.uniform1fv_with_f32_array(loc, data),
@@ -53,7 +53,7 @@ impl GlProgram {
     }
 
     pub(super) fn bind(&self) {
-        self.gl_context.use_program(Some(&self.gl_program));
+        self.gl_context.use_program(Some(&self.program));
     }
 }
 
@@ -75,7 +75,7 @@ fn link_shaders(
         .as_bool()
         .unwrap_or(false)
     {
-        context.use_program(Some(&program));
+        // context.use_program(Some(&program));
         Ok(program)
     } else {
         Err(context
@@ -103,7 +103,7 @@ fn compile_shader(
     {
         Ok(shader)
     } else {
-        let shader_name = if shader_type == WebGl2RenderingContext::VERTEX_SHADER {
+        let shader_name = if shader_type == VERTEX_SHADER {
             "vertex"
         } else {
             "fragment"
@@ -122,6 +122,6 @@ fn compile_shader(
 
 impl Drop for GlProgram {
     fn drop(&mut self) {
-        self.gl_context.delete_program(Some(&self.gl_program));
+        self.gl_context.delete_program(Some(&self.program));
     }
 }
