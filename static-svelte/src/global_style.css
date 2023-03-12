@@ -1,0 +1,11 @@
+
+body {
+    background: linear-gradient(112deg, #111 11%, #222 80%);
+    color: #fff;
+    font-family: "Montserrat";
+}
+
+@font-face {
+    font-family: "Montserrat";
+    src: url("$lib/Montserrat.ttf");
+}
